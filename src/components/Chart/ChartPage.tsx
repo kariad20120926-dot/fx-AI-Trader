@@ -80,6 +80,7 @@ export default function ChartPage() {
     seriesRef.current = series;
     fetchAndDraw(pair, tf, series, chart);
     return () => {
+      tradeLinesRef.current = [];   // 古いシリーズ参照を先にクリア
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -101,7 +102,8 @@ export default function ChartPage() {
   function applyMarkers(sigs: any[]) {
     if (!seriesRef.current || !chartRef.current) return;
 
-    tradeLinesRef.current.forEach(line => chartRef.current.removeSeries(line));
+    const chart = chartRef.current;
+    tradeLinesRef.current.forEach(line => { try { chart.removeSeries(line); } catch { } });
     tradeLinesRef.current = [];
 
     const markers: any[] = [];
@@ -129,7 +131,7 @@ export default function ChartPage() {
           text: `${s.pnl_pips > 0 ? "+" : ""}${s.pnl_pips.toFixed(1)}pip ${isWin ? "✓" : "✗"}`,
         });
 
-        const lineSeries = chartRef.current.addLineSeries({
+        const lineSeries = chart.addLineSeries({
           color: isWin ? "rgba(39, 200, 122, 0.6)" : "rgba(240, 90, 90, 0.6)",
           lineWidth: 2,
           lineStyle: 3,
