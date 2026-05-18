@@ -1,0 +1,32 @@
+# Node
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# モデル・データ（大容量のため除外）
+src-python/models/saved/
+src-python/logs/
+*.log
+
+# データベース（個人データのため除外）
+*.db
+*.sqlite
+
+# 環境変数・シークレット
+.env
+.env.local
+*.env
+
+# Tauri ビルド成果物
+src-tauri/target/
+
+# OS
+.DS_Store
+Thumbs.db

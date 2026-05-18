@@ -1,0 +1,51 @@
+name: FX シグナル通知（クラウド）
+
+# ─────────────────────────────────────────────────────────────
+# PC が OFF でも Discord / LINE に通知を届けるためのワークフロー。
+# 毎時0分に実行（UTC）→ JST では毎時9分相当。
+# 土日・市場クローズ時は cloud_scanner.py 内部でスキップ。
+#
+# 【初回セットアップ】
+#   GitHub リポジトリ → Settings → Secrets and variables → Actions
+#   以下のシークレットを追加してください:
+#     DISCORD_WEBHOOK_URL  : Discord のウェブフック URL
+#     LINE_NOTIFY_TOKEN    : LINE Notify のアクセストークン
+#   ※ どちらか片方だけでも動作します
+# ─────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # 毎時 0分・30分（UTC）に実行 → JST 9:00/9:30, 10:00/10:30 ...
+    - cron: "0 * * * *"
+    - cron: "30 * * * *"
+  workflow_dispatch:    # GitHub 画面から手動実行も可能
+
+jobs:
+  scan-and-notify:
+    name: シグナルスキャン & 通知
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 依存パッケージをインストール
+        run: |
+          pip install --quiet \
+            requests \
+            yfinance \
+            pandas \
+            numpy
+
+      - name: FX シグナルスキャン & 通知送信
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          LINE_NOTIFY_TOKEN:   ${{ secrets.LINE_NOTIFY_TOKEN }}
+        run: python src-python/cloud_scanner.py

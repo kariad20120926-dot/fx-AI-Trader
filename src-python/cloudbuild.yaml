@@ -1,0 +1,30 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-northeast1-docker.pkg.dev/fx-ai-trader-496418/fx-trader/scanner:latest'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-northeast1-docker.pkg.dev/fx-ai-trader-496418/fx-trader/scanner:latest'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'fx-trader-scanner'
+      - '--image=asia-northeast1-docker.pkg.dev/fx-ai-trader-496418/fx-trader/scanner:latest'
+      - '--region=asia-northeast1'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--memory=2Gi'
+      - '--cpu=1'
+      - '--timeout=300'
+      - '--max-instances=1'
+
+images:
+  - 'asia-northeast1-docker.pkg.dev/fx-ai-trader-496418/fx-trader/scanner:latest'

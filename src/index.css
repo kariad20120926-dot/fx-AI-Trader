@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg-base:     #0d0f12;
+  --bg-panel:    #141720;
+  --bg-card:     #1a1f2e;
+  --bg-hover:    #212840;
+  --border:      #2a3050;
+  --border-lite: #1e2540;
+  --text-1:      #e8eaf0;
+  --text-2:      #8890a8;
+  --text-3:      #555f7a;
+  --accent:      #4f9cf9;
+  --accent-dim:  #1e3a6e;
+  --green:       #27c87a;
+  --green-dim:   #0d3d25;
+  --red:         #f05a5a;
+  --red-dim:     #3d1515;
+  --amber:       #f0a832;
+  --amber-dim:   #3d2a0a;
+  --radius:      6px;
+  --radius-lg:   10px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-1);
+  background: var(--bg-base);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { background: var(--bg-base); overflow: hidden; }
+
+/* スクロールバー */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* mono font */
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* カード */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+}
+
+/* バッジ */
+.badge { display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px; }
+.badge-buy   { background:var(--green-dim); color:var(--green); }
+.badge-sell  { background:var(--red-dim);   color:var(--red);   }
+.badge-hold  { background:#1e2540;          color:var(--text-2);}
+
+/* ボタン */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-1);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  transition: background 0.15s, border-color 0.15s;
+}
+button:hover  { background: var(--bg-hover); border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary:hover { filter: brightness(1.1); }
+
+/* 入力 */
+input, select {
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  outline: none;
+}
+input:focus, select:focus { border-color: var(--accent); }
+
+/* 数値 */
+.up   { color: var(--green); }
+.down { color: var(--red);   }
+.muted { color: var(--text-2); }
+
+/* アニメーション */
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
+.live-dot {
+  width:7px; height:7px; border-radius:50%;
+  background:var(--green);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+  display:inline-block;
+}
