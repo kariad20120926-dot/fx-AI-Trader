@@ -39,7 +39,10 @@ class EnsembleModel(BaseModel):
         xgb_weight:           float = 0.5,
         lstm_weight:          float = 0.5,
         strategy:             str   = "weighted_avg",
-        confidence_threshold: float = 0.45,
+        # 3クラスの正直な確率は最大でも0.4台に分布するため、モデル内部での
+        # 信頼度ゲートは行わない（取引フィルターは SignalGenerator の
+        # confidence_min が担当。二重閾値は全シグナルをHOLD化させる）
+        confidence_threshold: float = 0.0,
         xgb_params:           Optional[dict] = None,
         lstm_params:          Optional[dict] = None,
     ):
@@ -100,7 +103,9 @@ class EnsembleModel(BaseModel):
         n = len(xgb_proba)
         m = len(lstm_proba)
         if m < n:
-            pad = np.tile(lstm_proba[-1:], (n - m, 1))
+            # 先頭の不足分は「最初の予測」で埋める（末尾の予測を過去に流用すると
+            # 時間的な整合が崩れるため）
+            pad = np.tile(lstm_proba[:1], (n - m, 1))
             lstm_proba = np.vstack([pad, lstm_proba])
         elif m > n:
             lstm_proba = lstm_proba[-n:]
@@ -200,6 +205,13 @@ class EnsembleModel(BaseModel):
 
         xgb_proba  = self.xgb.predict_proba(X_val)
         lstm_proba = self.lstm.predict_proba(X_val)
+
+        # LSTM は seq_len 分出力が短いので先頭をパディングして揃える
+        n, m = len(xgb_proba), len(lstm_proba)
+        if m < n:
+            lstm_proba = np.vstack([np.tile(lstm_proba[:1], (n - m, 1)), lstm_proba])
+        elif m > n:
+            lstm_proba = lstm_proba[-n:]
 
         for i in range(steps + 1):
             w = i / steps

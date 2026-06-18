@@ -34,6 +34,11 @@ class PipelineConfig:
     test_ratio:   float = 0.2
     val_ratio:    float = 0.1
     drop_ohlcv:   bool  = True
+    # ラベリング方式: "triple_barrier"=取引ルール整合（推奨） | "fixed_horizon"=従来方式
+    label_mode:   str   = "triple_barrier"
+    tb_horizon:   int   = 24    # トリプルバリアの最大保有バー数
+    tb_sl_mult:   float = 2.0   # SLバリア = ATR × この値
+    tb_tp_mult:   float = 3.0   # TPバリア = ATR × この値
 
 
 @dataclass
@@ -61,9 +66,17 @@ class DataPipeline:
         raw      = self._fetch()
         cleaned  = self.preprocessor.clean(raw)
         features = self.feature_eng.generate(cleaned)
-        labels   = self.preprocessor.create_labels(
-            features, horizon=self.cfg.horizon, threshold=self.cfg.threshold
-        )
+        if self.cfg.label_mode == "triple_barrier":
+            labels = self.preprocessor.create_labels_triple_barrier(
+                features,
+                horizon=self.cfg.tb_horizon,
+                sl_mult=self.cfg.tb_sl_mult,
+                tp_mult=self.cfg.tb_tp_mult,
+            )
+        else:
+            labels = self.preprocessor.create_labels(
+                features, horizon=self.cfg.horizon, threshold=self.cfg.threshold
+            )
         raw_full = features[["open","high","low","close","volume"]].copy() \
             if all(c in features.columns for c in ["open","high","low","close","volume"]) \
             else cleaned.loc[features.index]

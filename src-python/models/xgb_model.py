@@ -52,12 +52,18 @@ class XGBModel(BaseModel):
 
         self._model = xgb.XGBClassifier(**self.params)
 
+        # クラス不均衡対応: 少数クラス（BUY/SELL）の重みを引き上げる
+        counts = y_tr.value_counts()
+        n, k = len(y_tr), len(counts)
+        class_weight = {cls: n / (k * cnt) for cls, cnt in counts.items()}
+        sample_weight = y_tr.map(class_weight).values
+
         fit_kwargs: dict = {"verbose": False}
         if X_val is not None and y_val is not None:
             y_v = y_val.map(_LABEL_ENCODE)
             fit_kwargs["eval_set"] = [(X_val, y_v)]
 
-        self._model.fit(X_train, y_tr, **fit_kwargs)
+        self._model.fit(X_train, y_tr, sample_weight=sample_weight, **fit_kwargs)
         logger.info("XGBoost 学習完了")
         self.is_fitted = True
         return self

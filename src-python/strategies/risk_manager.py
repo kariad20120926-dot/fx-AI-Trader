@@ -9,20 +9,32 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def pip_size_for(instrument: str) -> float:
+    """通貨ペアからpip幅を返す（JPYクロス=0.01、それ以外=0.0001）"""
+    return 0.01 if "JPY" in instrument.upper() else 0.0001
+
+
 @dataclass
 class RiskConfig:
     initial_capital:   float = 1_000_000.0
     risk_per_trade:    float = 0.02
-    max_position_pct:  float = 0.10
+    max_position_pct:  float = 0.10   # 証拠金使用率の上限（資金に対する割合）
     sl_atr_mult:       float = 2.0
     tp_atr_mult:       float = 3.0
     risk_reward_min:   float = 1.0   # 1.5 から 1.2 に変更
     max_drawdown_pct:  float = 0.20
     daily_loss_limit:  float = 0.05
-    spread_pips:       float = 0.3
+    spread_pips:       float = 0.3   # 往復の総スプレッド（bid/ask差）
+    slippage_pips:     float = 0.1   # 成行・ストップ約定時の滑り
     commission_pct:    float = 0.0002
     pip_value:         float = 0.01
     lot_size:          int   = 1000
+    leverage:          float = 25.0  # 国内FX標準
+    # ── トレード管理（0 = 無効） ──────────────────────────────────────
+    trailing_atr_mult: float = 0.0   # 有利方向の極値から ATR×この値 でSLを追従
+    breakeven_rr:      float = 0.0   # 含み益がSL距離×この値に達したらSLを建値へ
+    max_hold_bars:     int   = 0     # 最大保有バー数（超過で時間切れ決済）
+    confidence_sizing: bool  = True  # 信頼度に応じてロットを増減（ライブと整合）
 
 
 @dataclass

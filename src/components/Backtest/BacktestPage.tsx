@@ -5,10 +5,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLin
 export default function BacktestPage() {
   const { register, handleSubmit } = useForm({
     defaultValues: {
-      instrument: "USD_JPY", granularity: "H1",
-      candle_count: 2000, initial_capital: 1000000,
+      // 既定値はパラメータ探索で見つかった最良設定（H4 + ADX15 + トレーリング2ATR）
+      instrument: "USD_JPY", granularity: "H4",
+      candle_count: 5000, initial_capital: 1000000,
       risk_per_trade: 0.02, sl_atr_mult: 2.0,
-      tp_atr_mult: 3.0, confidence_min: 0.33, adx_min: 0,
+      tp_atr_mult: 3.0, confidence_min: 0.34, adx_min: 15,
+      spread_pips: 0.3, slippage_pips: 0.1,
+      trailing_atr_mult: 2.0, breakeven_rr: 0, max_hold_bars: 24,
     }
   });
   const [progress, setProgress] = useState(0);
@@ -75,6 +78,11 @@ export default function BacktestPage() {
               { l: "TP倍率", n: "tp_atr_mult", type: "number", step: "0.5", min: 0.5 },
               { l: "信頼度（低いほど多くシグナル）", n: "confidence_min", type: "number", step: "0.01", min: 0.0, max: 1.0 },
               { l: "ADX最小（0=全相場）", n: "adx_min", type: "number", min: 0, max: 50 },
+              { l: "スプレッド (pips)", n: "spread_pips", type: "number", step: "0.1", min: 0, max: 10 },
+              { l: "スリッページ (pips)", n: "slippage_pips", type: "number", step: "0.1", min: 0, max: 10 },
+              { l: "トレーリング (ATR倍率, 0=無効)", n: "trailing_atr_mult", type: "number", step: "0.5", min: 0, max: 10 },
+              { l: "建値移動 (R倍率, 0=無効)", n: "breakeven_rr", type: "number", step: "0.5", min: 0, max: 5 },
+              { l: "最大保有バー数 (0=無制限)", n: "max_hold_bars", type: "number", min: 0, max: 500 },
             ].map(f => (
               <div key={f.n}>
                 <label style={{ display: "block", fontSize: 11, color: "var(--text-2)", marginBottom: 4 }}>{f.l}</label>

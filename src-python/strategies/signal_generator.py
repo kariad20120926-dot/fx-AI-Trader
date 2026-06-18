@@ -64,7 +64,7 @@ class SignalGenerator:
         # LSTM の出力サイズを XGBoost に合わせる
         n = len(X)
         if len(probas) < n:
-            pad   = np.tile(probas[-1:], (n - len(probas), 1))
+            pad   = np.tile(probas[:1], (n - len(probas), 1))
             probas = np.vstack([pad, probas])
         elif len(probas) > n:
             probas = probas[-n:]

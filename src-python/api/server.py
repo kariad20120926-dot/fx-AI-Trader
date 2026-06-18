@@ -3,6 +3,9 @@ import sys, os
 BASE = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(BASE))
 
+from utils.ssl_trust import ensure_truststore
+ensure_truststore()   # プロキシ環境でのSSL検証失敗を防ぐ（OS証明書ストア使用）
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

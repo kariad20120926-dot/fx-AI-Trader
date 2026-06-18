@@ -17,6 +17,11 @@ class BacktestRequest(BaseModel):
     tp_atr_mult:     float = 3.0
     confidence_min:  float = Field(0.33, ge=0.0, le=1.0)
     adx_min:         float = Field(0.0,  ge=0.0, le=50.0)
+    spread_pips:     float = Field(0.3,  ge=0.0, le=10.0)
+    slippage_pips:   float = Field(0.1,  ge=0.0, le=10.0)
+    trailing_atr_mult: float = Field(0.0, ge=0.0, le=10.0)   # 0=無効
+    breakeven_rr:      float = Field(0.0, ge=0.0, le=5.0)    # 0=無効
+    max_hold_bars:     int   = Field(24,  ge=0,   le=500)    # 0=無制限
 
 
 async def _run_backtest_stream(req: BacktestRequest):
@@ -75,6 +80,9 @@ async def _run_backtest_stream(req: BacktestRequest):
         X_test_feat = bundle_raw.X_test.drop(
             columns=[c for c in ohlcv_cols if c in bundle_raw.X_test.columns]
         )
+        X_train_feat = bundle_raw.X_train.drop(
+            columns=[c for c in ohlcv_cols if c in bundle_raw.X_train.columns]
+        )
 
         yield send(f"シグナル生成中... ({data_source})", 55)
         await asyncio.sleep(0.1)
@@ -84,17 +92,25 @@ async def _run_backtest_stream(req: BacktestRequest):
             confidence_min=req.confidence_min,
             adx_min=req.adx_min,
         )
-        sg.fit_thresholds(X_test_feat)
+        # ATR閾値は学習期間でフィット（テスト期間の情報リークを防ぐ）
+        sg.fit_thresholds(X_train_feat)
         signals = sg.generate(X_test_feat)
 
         yield send("バックテスト実行中...", 75)
         await asyncio.sleep(0.1)
 
+        from strategies.risk_manager import pip_size_for
         risk_cfg = RiskConfig(
             initial_capital=req.initial_capital,
             risk_per_trade=req.risk_per_trade,
             sl_atr_mult=req.sl_atr_mult,
             tp_atr_mult=req.tp_atr_mult,
+            spread_pips=req.spread_pips,
+            slippage_pips=req.slippage_pips,
+            pip_value=pip_size_for(req.instrument),
+            trailing_atr_mult=req.trailing_atr_mult,
+            breakeven_rr=req.breakeven_rr,
+            max_hold_bars=req.max_hold_bars,
         )
         bt = Backtester(
             initial_capital=req.initial_capital,

@@ -151,6 +151,19 @@ async def run_signal_scan():
     db        = SessionLocal()
     notifiers = get_notifiers()
 
+    # 経済指標カレンダー（取得失敗時はフィルター無しで続行）
+    calendar = None
+    try:
+        from data.economic_calendar import EconomicCalendar
+        calendar = EconomicCalendar(
+            blackout_before_min=int(get_setting("event_blackout_before_min") or 30),
+            blackout_after_min=int(get_setting("event_blackout_after_min") or 30),
+            min_impact=get_setting("event_min_impact") or "High",
+        )
+        calendar.refresh()
+    except Exception as e:
+        logger.warning(f"経済カレンダー初期化失敗（フィルター無効）: {e}")
+
     for watch in WATCH_LIST:
         inst, gran = watch["instrument"], watch["granularity"]
         try:
@@ -190,9 +203,17 @@ async def run_signal_scan():
             if X.empty:
                 continue
 
+            # 経済指標ブラックアウト: 高インパクト指標の前後は新規エントリー禁止
+            # （建玉のSL/TP評価は上の evaluate_open_trades で実施済み）
+            in_blackout, blackout_ev = (False, None)
+            if calendar is not None:
+                in_blackout, blackout_ev = calendar.is_blackout(inst)
+
             sg    = SignalGenerator(model=model)
-            trade = sg.generate_latest(X, current_price=current_price)
+            trade = None if in_blackout else sg.generate_latest(X, current_price=current_price)
             info  = model.signal(X)
+            if in_blackout:
+                logger.info(f"[BLACKOUT] {inst}/{gran} 経済指標フィルター発動: {blackout_ev}")
 
             label_map  = {1: "BUY", -1: "SELL", 0: "HOLD"}
             signal_str = label_map.get(info["raw_label"], "HOLD")

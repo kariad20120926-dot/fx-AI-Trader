@@ -56,6 +56,7 @@ class FeatureEngineer:
         out = self._add_candle_pattern_features(out)
         out = self._add_time_features(out)
         out = self._add_lag_features(out)
+        out = self._add_normalized_features(out)
 
         if self.drop_na:
             before = len(out)
@@ -259,6 +260,48 @@ class FeatureEngineer:
         return df
 
     # ─────────────────────────────────────────────────────────────────────────
+    # ATR 正規化特徴量（スケール不変・通貨ペア間で転用可能）
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _add_normalized_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        c   = df["close"]
+        atr = df.get("atr_14")
+        if atr is None:
+            return df
+        atr_safe = atr + 1e-10
+
+        # ATR 単位の複数ホライズンリターン（pipsではなくボラ単位の動き）
+        for k in [1, 4, 12, 24]:
+            df[f"ret_atr_{k}"] = (c - c.shift(k)) / atr_safe
+
+        # 移動平均からの乖離（ATR単位）
+        for p in [20, 50, 200]:
+            col = f"sma_{p}"
+            if col in df.columns:
+                df[f"dist_sma{p}_atr"] = (c - df[col]) / atr_safe
+
+        # ボラティリティレジーム（現在ATR / 長期平均ATR）
+        df["atr_regime"] = atr / (atr.rolling(100).mean() + 1e-10)
+
+        # 直近24本レンジ内のポジション（0=安値圏, 1=高値圏）
+        hi24 = df["high"].rolling(24).max()
+        lo24 = df["low"].rolling(24).min()
+        df["range_pos_24"] = (c - lo24) / (hi24 - lo24 + 1e-10)
+
+        # 連続陽線/陰線カウント（符号付き）
+        up = (c.diff() > 0).astype(int) * 2 - 1
+        grp = (up != up.shift()).cumsum()
+        df["consec_bars"] = up.groupby(grp).cumcount().add(1) * up
+
+        # オシレーターの傾き
+        if "rsi_14" in df.columns:
+            df["rsi_14_slope"] = df["rsi_14"].diff(3)
+        if "macd_hist" in df.columns:
+            df["macd_hist_atr"] = df["macd_hist"] / atr_safe
+
+        return df
+
+    # ─────────────────────────────────────────────────────────────────────────
     # ヘルパー計算
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -294,6 +337,8 @@ class FeatureEngineer:
         df["ichimoku_kijun"]    = kijun
         df["ichimoku_span_a"]   = ((tenkan + kijun) / 2).shift(26)
         df["ichimoku_span_b"]   = ((h.rolling(52).max() + l.rolling(52).min()) / 2).shift(26)
-        df["ichimoku_chikou"]   = df["close"].shift(-26)
+        # 遅行スパン: 「現在の終値 vs 26本前の価格」を現時点で観測できる形で表現
+        # （close.shift(-26) は未来の終値を特徴量に入れるリークになるため使用禁止）
+        df["ichimoku_chikou"]   = df["close"] / (df["close"].shift(26) + 1e-10) - 1
         df["cloud_thickness"]   = (df["ichimoku_span_a"] - df["ichimoku_span_b"]).abs()
         return df

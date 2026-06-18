@@ -15,6 +15,13 @@ src-python/models/saved/
 src-python/logs/
 *.log
 
+# ランタイムキャッシュ・探索成果物
+src-python/data/cache/
+src-python/sweep_result.csv
+
+# ローカルツール設定（Claude Code プレビュー等）
+.claude/
+
 # データベース（個人データのため除外）
 *.db
 *.sqlite

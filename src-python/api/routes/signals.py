@@ -107,6 +107,24 @@ def latest_signals(db: Session = Depends(get_db)):
     return results
 
 
+@router.get("/calendar")
+def economic_calendar(
+    instrument: Optional[str] = Query(None),
+    within_hours: float = Query(48.0, ge=1.0, le=168.0),
+):
+    """今後の高インパクト経済指標と現在のブラックアウト状態を返す"""
+    try:
+        from data.economic_calendar import EconomicCalendar
+        cal = EconomicCalendar()
+        events = cal.upcoming(instrument=instrument, within_hours=within_hours)
+        blackout, label = (False, None)
+        if instrument:
+            blackout, label = cal.is_blackout(instrument)
+        return {"events": events, "blackout": blackout, "blackout_event": label}
+    except Exception as e:
+        return {"events": [], "blackout": False, "blackout_event": None, "error": str(e)}
+
+
 @router.post("/scan")
 async def manual_scan():
     from api.scheduler import run_signal_scan

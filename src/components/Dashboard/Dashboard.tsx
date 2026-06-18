@@ -66,6 +66,12 @@ export default function Dashboard() {
     refetchInterval: 30_000,
   });
 
+  const { data: calendar } = useQuery({
+    queryKey: ["calendar"],
+    queryFn: () => fetch("/api/signals/calendar?instrument=USD_JPY&within_hours=48").then(r => r.json()),
+    refetchInterval: 10 * 60_000,
+  });
+
   const totalPnl    = stats?.total_pnl ?? 0;
   const winRate     = stats ? (stats.win_rate * 100).toFixed(1) + "%" : "—";
   const pf          = stats?.profit_factor?.toFixed(2) ?? "—";
@@ -104,6 +110,37 @@ export default function Dashboard() {
           up={signals[0]?.signal === "BUY" ? true : signals[0]?.signal === "SELL" ? false : undefined}
         />
       </div>
+
+      {calendar?.blackout && (
+        <div style={{
+          padding:"0.6rem 1rem", background:"var(--red-dim, rgba(244,63,94,0.1))",
+          border:"1px solid var(--red)", borderRadius:6, fontSize:12, color:"var(--red)",
+        }}>
+          ⚠ 経済指標ブラックアウト中 — 新規エントリー停止: {calendar.blackout_event}
+        </div>
+      )}
+
+      {(calendar?.events?.length ?? 0) > 0 && (
+        <div className="card" style={{ flex:"0 0 auto" }}>
+          <div style={{ fontSize:12, fontWeight:500, color:"var(--text-2)", marginBottom:"0.5rem" }}>
+            今後48時間の重要経済指標（USD/JPY関連・日本時間）
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:"0.5rem" }}>
+            {calendar.events.slice(0, 8).map((ev: any, i: number) => (
+              <div key={i} style={{
+                display:"flex", alignItems:"center", gap:6,
+                padding:"4px 10px", borderRadius:4, fontSize:11,
+                background:"var(--bg-hover, rgba(255,255,255,0.04))",
+                border:"1px solid var(--border)",
+              }}>
+                <span style={{ color:"var(--red)", fontWeight:600 }}>{ev.country}</span>
+                <span>{ev.title}</span>
+                <span style={{ color:"var(--text-3)", fontFamily:"monospace" }}>{toJST(ev.time)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ flex: "0 0 220px" }}>
         <div style={{ fontSize:12, fontWeight:500, color:"var(--text-2)", marginBottom:"0.75rem" }}>

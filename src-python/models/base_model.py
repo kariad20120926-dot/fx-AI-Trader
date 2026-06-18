@@ -88,6 +88,12 @@ class BaseModel(ABC):
         self._check_fitted()
         y_pred = self.predict(X_test)
 
+        # LSTM など系列モデルは seq_len 分出力が短い → 末尾を揃えて比較する
+        if len(y_pred) != len(y_test):
+            k = min(len(y_pred), len(y_test))
+            y_pred = y_pred[-k:]
+            y_test = y_test.iloc[-k:]
+
         report = classification_report(
             y_test, y_pred,
             labels=[-1, 0, 1],
