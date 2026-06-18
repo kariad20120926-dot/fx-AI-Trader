@@ -65,7 +65,7 @@ class DataPipeline:
         logger.info(f"パイプライン開始: {self.cfg.instrument} {self.cfg.granularity} ({self.cfg.source})")
         raw      = self._fetch()
         cleaned  = self.preprocessor.clean(raw)
-        features = self.feature_eng.generate(cleaned)
+        features = self.feature_eng.generate(cleaned, granularity=self.cfg.granularity)
         if self.cfg.label_mode == "triple_barrier":
             labels = self.preprocessor.create_labels_triple_barrier(
                 features,
@@ -92,7 +92,7 @@ class DataPipeline:
     def fetch_latest(self, count: int = 600) -> pd.DataFrame:
         raw      = self._fetch(count=count)
         cleaned  = self.preprocessor.clean(raw)
-        features = self.feature_eng.generate(cleaned)
+        features = self.feature_eng.generate(cleaned, granularity=self.cfg.granularity)
         if self.cfg.drop_ohlcv:
             ohlcv = ["open","high","low","close","volume"]
             features = features.drop(columns=[c for c in ohlcv if c in features.columns])

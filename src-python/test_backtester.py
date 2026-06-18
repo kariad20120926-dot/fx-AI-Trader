@@ -237,4 +237,30 @@ up = cal.upcoming("GBP_USD", within_hours=24)
 assert len(up) == 2, f"GBP_USDはCPIとBOEの2件: {len(up)}"
 print("test13 OK: 経済指標ブラックアウト判定")
 
+# ── テスト14: MTF特徴量がリークしない（未来改変で過去が不変） ───────────────
+from data.feature_engineer import FeatureEngineer
+
+np.random.seed(7)
+n14 = 600
+price = 150 + np.cumsum(np.random.randn(n14) * 0.1)
+idx14 = pd.date_range("2024-01-01", periods=n14, freq="1h", tz="UTC")
+base = pd.DataFrame({
+    "open": price, "high": price + 0.1, "low": price - 0.1,
+    "close": price + np.random.randn(n14) * 0.02, "volume": 0.0,
+}, index=idx14)
+
+fe = FeatureEngineer(drop_na=False)
+f1 = fe._add_mtf_features(base.copy(), "H1")
+mtf_cols = [c for c in f1.columns if c.startswith(("h4_", "d1_"))]
+assert mtf_cols, "MTF列が生成されていない"
+
+# 後半300本を大幅改変して再生成 → 前半250本のMTF値は不変であるべき
+tampered = base.copy()
+tampered.iloc[300:] *= 1.5
+f2 = fe._add_mtf_features(tampered, "H1")
+cut = 250
+diff = (f1[mtf_cols].iloc[:cut] - f2[mtf_cols].iloc[:cut]).abs().max().max()
+assert diff < 1e-9, f"未来改変が過去のMTF特徴量に漏れている: max_diff={diff}"
+print(f"test14 OK: MTF特徴量リークなし ({len(mtf_cols)}列, max_diff={diff:.2e})")
+
 print("\n全テスト合格")

@@ -194,7 +194,7 @@ async def run_signal_scan():
 
             current_price = float(raw_data["close"].iloc[-1])
             cleaned  = pipe.preprocessor.clean(raw_data)
-            features = pipe.feature_eng.generate(cleaned)
+            features = pipe.feature_eng.generate(cleaned, granularity=gran)
             if pipe.cfg.drop_ohlcv:
                 ohlcv = ["open","high","low","close","volume"]
                 features = features.drop(columns=[c for c in ohlcv if c in features.columns])

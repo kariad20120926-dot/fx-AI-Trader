@@ -31,16 +31,27 @@ class FeatureEngineer:
       - 時間特徴量   : 時間帯・曜日（周期エンコーディング）
     """
 
+    # 各時間足に対する上位足（最大2つ）。pandas resample のルール
+    MTF_RULES = {
+        "M1":  [("15min", "m15"), ("1h", "h1")],
+        "M5":  [("1h",  "h1"),    ("4h", "h4")],
+        "M15": [("1h",  "h1"),    ("4h", "h4")],
+        "H1":  [("4h",  "h4"),    ("D",  "d1")],
+        "H4":  [("D",   "d1"),    ("W",  "w1")],
+        "D":   [("W",   "w1")],
+    }
+
     def __init__(self, drop_na: bool = True):
         self.drop_na = drop_na
 
-    def generate(self, df: pd.DataFrame) -> pd.DataFrame:
+    def generate(self, df: pd.DataFrame, granularity: str | None = None) -> pd.DataFrame:
         """
         全カテゴリの特徴量を生成して返す。
 
         Parameters
         ----------
-        df : OHLCV DataFrame（index=DatetimeIndex UTC）
+        df          : OHLCV DataFrame（index=DatetimeIndex UTC）
+        granularity : 基準時間足（"H1"等）。指定すると上位足の文脈特徴量を付加する
 
         Returns
         -------
@@ -57,6 +68,8 @@ class FeatureEngineer:
         out = self._add_time_features(out)
         out = self._add_lag_features(out)
         out = self._add_normalized_features(out)
+        if granularity:
+            out = self._add_mtf_features(out, granularity)
 
         if self.drop_na:
             before = len(out)
@@ -298,6 +311,50 @@ class FeatureEngineer:
             df["rsi_14_slope"] = df["rsi_14"].diff(3)
         if "macd_hist" in df.columns:
             df["macd_hist_atr"] = df["macd_hist"] / atr_safe
+
+        return df
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # マルチタイムフレーム特徴量（上位足の文脈・未来参照なし）
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _add_mtf_features(self, df: pd.DataFrame, granularity: str) -> pd.DataFrame:
+        """
+        基準足のOHLCVを上位足にリサンプルし、トレンド/モメンタムを合成する。
+
+        リーク防止:
+          上位足の各バーは「確定したバーのみ」を使う。リサンプル後に1バー
+          shift し、ffill で基準足にマッピングすることで、現在進行中の
+          （未確定の）上位足バーを参照しない。
+        """
+        rules = self.MTF_RULES.get(granularity.upper())
+        if not rules or not {"open", "high", "low", "close"}.issubset(df.columns):
+            return df
+
+        for rule, prefix in rules:
+            agg = df.resample(rule, label="right", closed="right").agg({
+                "open": "first", "high": "max", "low": "min", "close": "last",
+            }).dropna()
+            if len(agg) < 30:
+                logger.debug(f"MTF {prefix}: 上位足バー不足({len(agg)})のためスキップ")
+                continue
+
+            ac = agg["close"]
+            htf = pd.DataFrame(index=agg.index)
+            htf[f"{prefix}_ret"]      = ac.pct_change()
+            ema_f = ac.ewm(span=12, adjust=False).mean()
+            ema_s = ac.ewm(span=26, adjust=False).mean()
+            htf[f"{prefix}_ema_diff"] = (ema_f - ema_s) / (ac + 1e-10)
+            htf[f"{prefix}_rsi"]      = self._calc_rsi(ac, 14)
+            sma20 = ac.rolling(20).mean()
+            htf[f"{prefix}_trend"]    = np.sign(ac - sma20)
+            htf[f"{prefix}_dist_sma"] = (ac - sma20) / (ac + 1e-10)
+
+            # 1バー shift で「確定済み上位足」のみに限定 → ffill で基準足へ
+            htf = htf.shift(1)
+            mapped = htf.reindex(df.index, method="ffill")
+            for col in mapped.columns:
+                df[col] = mapped[col].values
 
         return df
 
